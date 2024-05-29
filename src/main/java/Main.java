@@ -12,8 +12,30 @@ public class Main {
             texts[i] = generateRoute(ALPHABET, texts.length);
         }
 
+        Thread findMax = new Thread(() -> {
+            while (!Thread.interrupted()) {
+                synchronized (sizeToFreq) {
+                    try {
+                        sizeToFreq.wait();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    Optional<Entry<Integer, Integer>> maxValueEntry = sizeToFreq.entrySet()
+                            .stream()
+                            .max(Comparator.comparing(Entry::getValue)
+                            );
+                    System.out.printf("Лидер по количеству повторений %d (встретилось %d раз)\n",
+                            maxValueEntry.get().getKey(),
+                            maxValueEntry.get().getValue()
+                    );
+                }
+            }
+        });
+        findMax.start();
+
+
         for (String text : texts) {
-            new Thread(() -> {
+            Thread thread = new Thread(() -> {
                 int counter = 0;
                 for (int i = 0; i < text.length(); i++) {
                     if (text.charAt(i) == 'R') {
@@ -27,9 +49,18 @@ public class Main {
                     } else {
                         sizeToFreq.put(counter, 1);
                     }
+                    sizeToFreq.notify();
                 }
-            }).start();
+            });
+            thread.start();
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
+
+        findMax.interrupt();
 
         Optional<Entry<Integer, Integer>> maxValueEntry = sizeToFreq.entrySet()
                 .stream()
